@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual Environment
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Logs
+*.log 
