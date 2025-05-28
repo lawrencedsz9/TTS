@@ -1,23 +1,43 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-import uuid
-from TTS.api import TTS
+from models import TTSRequest
+from services.tts import TTSService
+from services.email_service import EmailService
+import logging
+from pathlib import Path
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Create output directory
+OUTPUT_DIR = Path("output")
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 app = FastAPI()
-
-# Load a pre-trained TTS model
-tts = TTS(model_name="tts_models/en/ljspeech/tacotron2-DDC", progress_bar=False, gpu=False)
-
-class TTSRequest(BaseModel):
-    text: str
+tts_service = TTSService()
+email_service = EmailService()
 
 @app.post("/speak")
-def text_to_speech(request: TTSRequest):
-    # Generate unique filename
-    filename = f"{uuid.uuid4()}.wav"
-    
-    # Convert text to speech and save to file
-    tts.tts_to_file(text=request.text, file_path=filename)
-    
-    return FileResponse(path=filename, media_type="audio/wav", filename="output.wav")
+async def text_to_speech(request: TTSRequest):
+    try:
+        # Generate audio file
+        filename = tts_service.generate_speech(request.text)
+        
+        # Send email with the audio file
+        email_service.send_audio_email(
+            to_email=request.email,
+            audio_file_path=filename,
+            text_content=request.text
+        )
+        
+        # Return the audio file
+        return FileResponse(
+            path=filename,
+            media_type="audio/wav",
+            filename="output.wav"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
